@@ -4,6 +4,7 @@ import dev.kommander.domain.model.ActivityStatus
 import dev.kommander.domain.model.AgentActivity
 import dev.kommander.domain.model.ListenerState
 import dev.kommander.domain.model.RepositoryRef
+import dev.kommander.domain.model.ToolOutcome
 import dev.kommander.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,11 @@ internal fun activity(
     status: ActivityStatus,
     session: String? = "s1",
     repo: String? = "tonimadev/Kommander",
+    tool: String? = null,
+    toolUseId: String? = null,
+    outcome: ToolOutcome? = null,
+    detail: String? = null,
+    narration: String? = null,
 ) = AgentActivity(
     id = id,
     timestamp = Instant.ofEpochSecond(1_000 + id),
@@ -23,6 +29,11 @@ internal fun activity(
     status = status,
     target = null,
     message = null,
+    tool = tool,
+    toolUseId = toolUseId,
+    outcome = outcome,
+    outcomeDetail = detail,
+    narration = narration,
 )
 
 internal class FakeActivityRepository : ActivityRepository {

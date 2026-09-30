@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.kommander.domain.model.ActivityCategory
+import dev.kommander.domain.model.ToolOutcome
 import dev.kommander.domain.model.AgentActivity
 import kotlinx.coroutines.delay
 
@@ -99,8 +100,10 @@ fun PulseStrip(
             val x = right - (age / WINDOW_MS) * right
             val fade = 1f - (age / WINDOW_MS) * 0.7f
             val grow = if (activity.id == newest) arrival.value else 1f
-            val amp = maxAmp * amplitudeOf(activity.status.category) * grow
-            val color = activity.status.category.visual.accent.copy(alpha = fade)
+            // Ação que falhou vira um pico vermelho, do tamanho de um erro.
+            val category = if (activity.outcome == ToolOutcome.FAILED) ActivityCategory.ERROR else activity.status.category
+            val amp = maxAmp * amplitudeOf(category) * grow
+            val color = category.visual.accent.copy(alpha = fade)
 
             // Complexo "QRS": pequena descida, pico alto, vale e retorno à base.
             val path = Path().apply {
@@ -129,6 +132,6 @@ private fun amplitudeOf(category: ActivityCategory): Float = when (category) {
     ActivityCategory.DEPLOY, ActivityCategory.GITHUB, ActivityCategory.WAITING, ActivityCategory.ERROR -> 1f
     ActivityCategory.CODING, ActivityCategory.TESTING -> 0.8f
     ActivityCategory.SUCCESS -> 0.7f
-    ActivityCategory.PLANNING, ActivityCategory.RESEARCH -> 0.55f
+    ActivityCategory.PLANNING, ActivityCategory.RESEARCH, ActivityCategory.COMMAND -> 0.55f
     ActivityCategory.IDLE -> 0.35f
 }

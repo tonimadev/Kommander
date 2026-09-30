@@ -21,6 +21,14 @@ data class AgentActivity(
     val message: String?,
     /** Ferramenta usada pelo agente (Edit, Bash, mcp__github__create_pull_request...). */
     val tool: String? = null,
+    /** Id da chamada de ferramenta; liga o `PreToolUse` ao resultado (`PostToolUse`). */
+    val toolUseId: String? = null,
+    /** Resultado da ferramenta, quando este evento é um retorno (`PostToolUse`/`PostToolUseFailure`). */
+    val outcome: ToolOutcome? = null,
+    /** Detalhe do resultado: mensagem de erro, trecho da saída que indica falha... */
+    val outcomeDetail: String? = null,
+    /** O que o Claude disse por último (texto da resposta), lido do transcript da sessão. */
+    val narration: String? = null,
 ) {
     /** Chave que agrupa atividades de uma mesma sessão de trabalho. */
     val sessionKey: String
@@ -40,3 +48,6 @@ data class RepositoryRef(
     val name: String get() = slug.substringAfterLast('/')
     val owner: String? get() = slug.substringBeforeLast('/', missingDelimiterValue = "").ifEmpty { null }
 }
+
+/** Como terminou uma chamada de ferramenta. */
+enum class ToolOutcome { SUCCEEDED, FAILED }

@@ -20,13 +20,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.kommander.domain.model.ActivityCategory
 import dev.kommander.domain.model.AgentActivity
+import dev.kommander.domain.model.ToolOutcome
 import java.time.Instant
 
 /** Linha compacta do histórico: ícone da categoria, repositório, status e alvo. */
 @Composable
 fun TimelineItem(activity: AgentActivity, now: Instant, showRepository: Boolean, modifier: Modifier = Modifier) {
-    val visual = activity.status.category.visual
+    val failed = activity.outcome == ToolOutcome.FAILED
+    val visual = (if (failed) ActivityCategory.ERROR else activity.status.category).visual
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -50,14 +53,14 @@ fun TimelineItem(activity: AgentActivity, now: Instant, showRepository: Boolean,
                     Text(" · ", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
-                    text = activity.status.label,
+                    text = if (failed) "${activity.status.label} · falhou" else activity.status.label,
                     style = MaterialTheme.typography.labelLarge,
                     color = visual.accent,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                 )
             }
-            val detail = activity.target ?: activity.message
+            val detail = (if (failed) activity.outcomeDetail else null) ?: activity.target ?: activity.message
             detail?.let {
                 Text(
                     text = it,

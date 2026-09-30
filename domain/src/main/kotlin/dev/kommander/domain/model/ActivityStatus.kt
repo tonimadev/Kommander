@@ -13,7 +13,7 @@ enum class ActivityStatus(
     PLANNING(ActivityCategory.PLANNING, isInProgress = true),
     EXPLORING(ActivityCategory.RESEARCH, isInProgress = true),
     CODING(ActivityCategory.CODING, isInProgress = true),
-    RUNNING_COMMAND(ActivityCategory.CODING, isInProgress = true),
+    RUNNING_COMMAND(ActivityCategory.COMMAND, isInProgress = true),
     TESTING(ActivityCategory.TESTING, isInProgress = true),
     GITHUB(ActivityCategory.GITHUB, isInProgress = true),
     COMMITTING(ActivityCategory.GITHUB, isInProgress = true),
@@ -42,4 +42,4 @@ enum class ActivityStatus(
     }
 }
 
-enum class ActivityCategory { PLANNING, RESEARCH, CODING, TESTING, GITHUB, DEPLOY, WAITING, SUCCESS, ERROR, IDLE }
+enum class ActivityCategory { PLANNING, RESEARCH, CODING, COMMAND, TESTING, GITHUB, DEPLOY, WAITING, SUCCESS, ERROR, IDLE }

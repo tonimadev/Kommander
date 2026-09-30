@@ -1,6 +1,9 @@
 package dev.kommander.data.repository
 
 import dev.kommander.data.claude.ClaudeHookDto
+import dev.kommander.data.claude.FileTranscriptReader
+import dev.kommander.data.claude.TranscriptReader
+import dev.kommander.data.claude.startsTurn
 import dev.kommander.data.claude.toDomain
 import dev.kommander.data.git.FileSystemRepositoryResolver
 import dev.kommander.data.git.RepositoryResolver
@@ -42,6 +45,7 @@ import java.util.concurrent.atomic.AtomicLong
 class WebhookActivityRepository(
     private val config: WebhookServerConfig = WebhookServerConfig(),
     private val repositoryResolver: RepositoryResolver = FileSystemRepositoryResolver(),
+    private val transcriptReader: TranscriptReader = FileTranscriptReader(),
 ) : ActivityRepository {
 
     private val _activities = MutableSharedFlow<AgentActivity>(
@@ -65,11 +69,20 @@ class WebhookActivityRepository(
         }
 
         override suspend fun onClaudeHook(hook: ClaudeHookDto): Long? {
-            val activity = hook.toDomain(id = nextId.incrementAndGet(), repository = resolve(hook.cwd))
-                ?: return null
+            val activity = hook.toDomain(
+                id = nextId.incrementAndGet(),
+                repository = resolve(hook.cwd),
+                narration = narrationOf(hook),
+            ) ?: return null
             _activities.emit(activity)
             return activity.id
         }
+    }
+
+    private suspend fun narrationOf(hook: ClaudeHookDto): String? {
+        val path = hook.transcriptPath
+        if (hook.startsTurn || hook.lastAssistantMessage != null || path.isNullOrBlank()) return null
+        return withContext(Dispatchers.IO) { runCatching { transcriptReader.lastAssistantText(path) }.getOrNull() }
     }
 
     private suspend fun resolve(cwd: String?): RepositoryRef? {

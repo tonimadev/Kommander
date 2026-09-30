@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Commit
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -48,9 +50,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.kommander.domain.model.ActivityCategory
+import dev.kommander.domain.model.AgentActivity
+import dev.kommander.domain.model.ToolOutcome
 import dev.kommander.presentation.dashboard.SessionSnapshot
 import dev.kommander.presentation.dashboard.flowSteps
 import java.time.Instant
@@ -61,8 +67,9 @@ private val CardCorner = 20.dp
 /**
  * Card estilo "Google Now" de uma sessão do Claude:
  * - cabeçalho com repositório/branch e ícone pulsante da categoria;
- * - o que está sendo feito agora (texto anima a cada troca);
- * - trilho do pedido atual (Plano → … → Deploy) com a etapa ativa pulsando;
+ * - o que está sendo feito agora (texto anima a cada troca), em vermelho se falhou;
+ * - a última fala do Claude, lida do transcript da sessão;
+ * - trilho do pedido atual, na ordem real das etapas, com a ativa pulsando;
  * - linha de pulso com um pico por ação nos últimos 90s;
  * - borda que "acende" a cada evento novo e pulsa quando precisa de você.
  */
@@ -75,7 +82,7 @@ fun SessionCard(
     modifier: Modifier = Modifier,
 ) {
     val activity = session.latest
-    val visual = activity.status.category.visual
+    val visual = activity.visual
     val accent by animateColorAsState(visual.accent, tween(400), label = "accent")
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val container by animateColorAsState(
@@ -171,7 +178,16 @@ fun SessionCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    if (current.failed) {
+                        Spacer(Modifier.height(4.dp))
+                        FailureLine(current.outcomeDetail ?: "A última ação falhou")
+                    }
                 }
+            }
+
+            session.narration?.let { narration ->
+                Spacer(Modifier.height(10.dp))
+                Narration(narration, featured)
             }
 
             Spacer(Modifier.height(14.dp))
@@ -207,7 +223,7 @@ fun SessionCard(
 
 @Composable
 private fun Header(session: SessionSnapshot, accent: Color, featured: Boolean, onDismiss: () -> Unit) {
-    val visual = session.latest.status.category.visual
+    val visual = session.latest.visual
     Row(verticalAlignment = Alignment.CenterVertically) {
         PulsingIcon(
             icon = visual.icon,
@@ -248,7 +264,7 @@ private fun Header(session: SessionSnapshot, accent: Color, featured: Boolean, o
                 }
             }
         }
-        StatusPill(session.latest.status.label, accent)
+        StatusPill(if (session.latest.failed) "Falhou" else session.latest.status.label, accent)
         IconButton(onClick = onDismiss) {
             Icon(Icons.Rounded.Close, contentDescription = "Remover sessão", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -270,6 +286,53 @@ fun StatusPill(text: String, accent: Color, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = accent,
+            )
+        }
+    }
+}
+
+private val AgentActivity.failed: Boolean get() = outcome == ToolOutcome.FAILED
+
+/** Uma ação que falhou pinta o card de vermelho até o próximo evento. */
+private val AgentActivity.visual: CategoryVisual
+    get() = (if (failed) ActivityCategory.ERROR else status.category).visual
+
+@Composable
+private fun FailureLine(detail: String) {
+    val red = ActivityCategory.ERROR.visual.accent
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.ErrorOutline, contentDescription = "falhou", tint = red, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = red,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** O que o Claude disse por último, como uma citação: é o "porquê" por trás das ferramentas. */
+@Composable
+private fun Narration(text: String, featured: Boolean) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            Icons.Rounded.FormatQuote,
+            contentDescription = "Claude disse",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        AnimatedContent(text, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "narration") {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                fontStyle = FontStyle.Italic,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (featured) 3 else 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

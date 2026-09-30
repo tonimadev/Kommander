@@ -1,50 +1,65 @@
 # Kommander
 
-Dashboard *companion* em **Compose Desktop** que mostra, em tempo real, **o que o Claude Code está fazendo e em qual repositório**: lendo código, editando, rodando testes, abrindo PR no GitHub, fazendo deploy na Magalu Cloud, esperando sua resposta…
+A **Compose Desktop** companion dashboard that shows, in real time, **what Claude Code is doing and in which
+repository**: reading code, editing, running tests, opening pull requests, deploying, waiting for your answer…
 
 ```
 Claude Code ──hook (stdin JSON)──► curl ──POST──► Ktor (127.0.0.1:8080) ──SharedFlow──► ViewModel (StateFlow) ──► Compose UI
-Seu script  ──────────────────────────────POST /events──┘
+Your script ──────────────────────────────POST /events──┘
 ```
 
-- Um **card por sessão** (estilo Google Now) com repositório, branch e status atual, com ícone/cor por categoria.
-- **Ícone pulsante**: anéis de radar enquanto o Claude trabalha; pulso rápido e rosa quando **precisa de você**.
-- **Fluxo do pedido**: trilho `Plano → Leitura → Código → Testes → GitHub → Deploy`. As etapas feitas ficam acesas,
-  a atual pulsa e a conexão até ela tem um tracejado correndo.
-- **Linha de pulso** (estilo eletrocardiograma): cada ação vira um pico colorido que desliza pelos últimos 90s,
-  com uma "cabeça" pulsando na ponta enquanto há trabalho.
-- Borda que acende a cada evento novo e `LinearProgressIndicator` indeterminado no topo do card em andamento.
-- **Linha do tempo** de tudo o que aconteceu, com filtro por repositório.
-- As animações só rodam enquanto há algo acontecendo: com o Claude parado, o app fica ocioso.
-- Botão de **fixar janela no topo** para deixar o companion sempre visível.
+<p align="center">
+  <img src="docs/screenshots/working.png" width="420" alt="Claude at work: the tests failed and it is fixing the code">
+  <img src="docs/screenshots/done.png" width="420" alt="Request finished: the full flow, with tests passing on the second run">
+</p>
 
-## Rodando
+<p align="center"><sub>Left: Claude fixing the code after the tests failed, with the reason in the timeline.
+Right: the finished request, with the flow it actually took and Claude's final answer. Generated with <code>./scripts/simulate.sh</code>.</sub></p>
 
-Requisitos: JDK 17+.
+- **One card per session** with repository, branch and current status, with an icon and color per category.
+- **Pulsing icon**: radar rings while Claude works; a faster pink pulse when it **needs you**.
+- **Request flow**: a rail built from the steps Claude actually took, in the order they happened
+  (e.g. `Plan → Read → Code → Tests ✗ → Code → Tests ✓ → GitHub`). Consecutive actions of the same kind merge into
+  one step with a counter, the current step pulses, and older steps collapse into `+N`.
+- **Outcome of every action** (`PostToolUse`/`PostToolUseFailure`): failures turn red on the card, the rail, the pulse
+  line and the timeline, with the reason (e.g. `24 tests completed, 1 failed`). Tests and deploys that pass get a ✓.
+- **What Claude is saying**: its latest sentence between tools, read from the session transcript, shows up as a quote
+  on the card; when it finishes, the card shows its final answer.
+- **Pulse line** (ECG style): every action is a colored spike that slides across the last 90 seconds, with a pulsing
+  head while there is work in progress.
+- The border lights up on every new event, and an indeterminate progress bar runs on top of cards that are working.
+- **Timeline** of everything that happened, filterable by repository.
+- Animations only run while something is happening: with Claude idle, the app is idle too.
+- **Always on top** toggle to keep the companion visible.
+
+> The app UI is currently in Portuguese.
+
+## Running
+
+Requires JDK 17+.
 
 ```bash
-git clone https://github.com/tonimadev/Kommander.git ~/IntelliJIdeaProjects/Kommander
-cd ~/IntelliJIdeaProjects/Kommander
-git checkout claude/companion-dashboard-compose-1nshmf
+git clone https://github.com/tonimadev/Kommander.git
+cd Kommander
 
-./gradlew :desktopApp:run                       # porta padrão 8080
-./gradlew :desktopApp:run --args="--port=9090"  # ou KOMMANDER_PORT=9090
+./gradlew :desktopApp:run                       # default port 8080
+./gradlew :desktopApp:run --args="--port=9090"  # or KOMMANDER_PORT=9090
 ```
 
-Em outro terminal, veja o dashboard reagir a duas sessões simuladas:
+In another terminal, watch the dashboard react to two simulated sessions:
 
 ```bash
 ./scripts/simulate.sh
 ```
 
-Executável nativo com JVM embutida (funciona no Arch/CachyOS):
+Native executable with a bundled JVM:
 
 ```bash
 ./gradlew :desktopApp:createDistributable
 # -> desktopApp/build/compose/binaries/main/app/kommander/bin/kommander
 ```
 
-Atalho no menu com o ícone do app ([`desktopApp/icons/kommander.svg`](desktopApp/icons/kommander.svg)):
+Linux menu entry with the app icon ([`desktopApp/icons/kommander.svg`](desktopApp/icons/kommander.svg)):
 
 ```bash
 mkdir -p ~/.local/opt
@@ -53,7 +68,7 @@ install -Dm644 desktopApp/icons/kommander.svg ~/.local/share/icons/hicolor/scala
 cat > ~/.local/share/applications/kommander.desktop <<EOF
 [Desktop Entry]
 Name=Kommander
-Comment=Dashboard do Claude Code
+Comment=Claude Code dashboard
 Exec=env _JAVA_AWT_WM_NONREPARENTING=1 $HOME/.local/opt/kommander/bin/kommander
 Icon=kommander
 StartupWMClass=dev-kommander-app-MainKt
@@ -63,94 +78,112 @@ Categories=Development;
 EOF
 ```
 
-Em distros Debian/Fedora: `./gradlew :desktopApp:packageDeb` / `packageRpm`.
+Installable packages: `./gradlew :desktopApp:packageDeb` / `packageRpm`.
 
-## Conectando ao Claude Code
+## Connecting Claude Code
 
-O Claude Code executa [hooks](https://docs.claude.com/en/docs/claude-code/hooks) em cada etapa e passa um JSON no stdin
-(`session_id`, `cwd`, `tool_name`, `tool_input`…). Cada hook só repassa esse JSON com `curl` para
-`POST /hooks/claude-code`; o Kommander interpreta o evento e descobre o repositório lendo o `.git` do `cwd`.
+Claude Code runs [hooks](https://docs.claude.com/en/docs/claude-code/hooks) at every step and passes a JSON payload on
+stdin (`session_id`, `cwd`, `tool_name`, `tool_input`, `tool_use_id`, `transcript_path`…). Each hook just forwards that
+JSON with `curl` to `POST /hooks/claude-code`; Kommander interprets the event and finds the repository by reading the
+`.git` of the `cwd`.
 
 ```bash
-./integrations/claude-code/install-hooks.sh   # mescla em ~/.claude/settings.json (com backup, requer jq)
+./integrations/claude-code/install-hooks.sh   # merges into ~/.claude/settings.json (with a backup, requires jq)
 ```
 
-Ou copie o conteúdo de [`integrations/claude-code/hooks.json`](integrations/claude-code/hooks.json) para o
-`settings.json` (de usuário ou de um projeto). Os hooks usam `--max-time 1` e `|| true`: se o Kommander
-estiver fechado, o Claude Code segue normalmente. A saída do `curl` vai para `/dev/null` para não ser
-injetada no contexto do Claude (no `UserPromptSubmit`/`SessionStart`, o stdout do hook vira contexto).
+Or copy [`integrations/claude-code/hooks.json`](integrations/claude-code/hooks.json) into a user or project
+`settings.json`. The hooks use `--max-time 1` and `|| true`: if Kommander is closed, Claude Code carries on as usual.
+The `curl` output goes to `/dev/null` so it is not injected into Claude's context (on `UserPromptSubmit` and
+`SessionStart`, hook stdout becomes context).
 
-| Hook do Claude Code                                   | Status no dashboard          |
+| Claude Code hook                                      | Dashboard status             |
 |-------------------------------------------------------|------------------------------|
-| `SessionStart`                                        | Sessão iniciada              |
-| `UserPromptSubmit`                                    | Pensando (mostra o prompt)   |
-| `PreToolUse` Read / Grep / Glob / WebFetch            | Explorando                   |
-| `PreToolUse` Edit / Write / MultiEdit                 | Escrevendo código (arquivo)  |
-| `PreToolUse` Task / TodoWrite                         | Planejando                   |
-| `PreToolUse` Bash `gradle test`, `npm test`, `pytest`…| Testando                     |
-| `PreToolUse` Bash `gradle build`, `docker build`…     | Build                        |
+| `SessionStart`                                        | Session started              |
+| `UserPromptSubmit`                                    | Thinking (shows the prompt)  |
+| `PreToolUse` Read / Grep / Glob / WebFetch / ToolSearch | Exploring                  |
+| `PreToolUse` Edit / Write / MultiEdit                 | Coding (shows the file)      |
+| `PreToolUse` Task / Agent / TodoWrite / Skill / SendMessage | Planning               |
+| `PreToolUse` AskUserQuestion / ExitPlanMode           | Waiting for you (shows the question) |
+| `PreToolUse` Bash `gradle test`, `npm test`, `pytest`…| Testing                      |
+| `PreToolUse` Bash `ktlint`, `eslint`, `tsc`, `gradle lint`… | Testing (lint)         |
+| `PreToolUse` Bash `npm install`, `pip install`…       | Building (dependencies)      |
+| `PreToolUse` Bash `gradle build`, `docker build`…     | Building                     |
 | `PreToolUse` Bash `git commit` / `git push`           | Commit / push                |
+| `PreToolUse` Bash `git status/diff/log`, `ls`, `cat`, `grep`, `curl`… | Exploring    |
+| `PreToolUse` Bash `adb install` / other `adb` commands | Deploying to device / Exploring |
 | `PreToolUse` Bash `gh pr create`, `mcp__github__*`    | GitHub (PR, issue, review…)  |
-| `PreToolUse` Bash `mgc …`                             | Deploy → **Magalu Cloud**    |
-| `PreToolUse` Bash `kubectl apply`, `helm`, `terraform apply`… | Deploy               |
-| `Notification`                                        | Aguardando você              |
-| `Stop`                                                | Concluído                    |
-| `SessionEnd`                                          | Sessão encerrada             |
+| `PreToolUse` Bash `kubectl apply`, `helm`, `terraform apply`, `docker push`… | Deploying |
+| `PreToolUse` other `mcp__<server>__<action>`          | By the action verb: `search/get/list…` → Exploring, `*test*`/`run_task` → Testing, `deploy` → Deploying, anything else → Command (with the server name) |
+| `PostToolUse` / `PostToolUseFailure`                  | Completes the original action (matched by `tool_use_id`) with ✓ or ✗ and the reason |
+| `Notification`                                        | Waiting for you              |
+| `Stop`                                                | Done (with Claude's final answer) |
+| `SessionEnd`                                          | Session ended                |
 
-> **Sessões na nuvem (claude.ai/code):** os hooks rodam no container remoto, onde `127.0.0.1` não é a sua
-> máquina. Para elas, exponha o Kommander com um túnel (ex.: `cloudflared`, `ngrok`) e defina
-> `KOMMANDER_URL` no ambiente da sessão — e só faça isso com autenticação no túnel, pois o endpoint não tem auth.
+A failing test shows up even when the command exits with 0: for tests, builds and deploys, Kommander scans the output
+for signs such as `BUILD FAILED`, `FAILED` or `N failed` (from 1 up). What Claude is saying comes from
+`transcript_path`: Kommander reads only the end of the JSONL file (256 KB) and stops at your latest prompt, so text
+from a previous request is never shown.
 
-## Webhook genérico (`POST /events`)
+> Installed the hooks before? Run `install-hooks.sh` again to add `PostToolUse` and `PostToolUseFailure`. Without
+> them the dashboard still works, just without ✓/✗.
 
-Para o seu script de automação (ou qualquer outro agente):
+> **Cloud sessions (claude.ai/code):** hooks run in the remote container, where `127.0.0.1` is not your machine.
+> For those, expose Kommander through a tunnel and set `KOMMANDER_URL` in the session environment. Only do this with
+> authentication on the tunnel: the endpoint itself has none.
+
+## Generic webhook (`POST /events`)
+
+For your own automation scripts (or any other agent):
 
 ```bash
 curl -X POST localhost:8080/events -H 'Content-Type: application/json' -d '{
   "timestamp": "2026-09-30T12:00:00Z",
   "agent": "claude-code",
   "status": "DEPLOYING",
-  "target": "Magalu Cloud",
-  "message": "Subindo os containers...",
-  "repository": "tonimadev/api-pagamentos",
+  "target": "production cluster",
+  "message": "Rolling out the new release...",
+  "repository": "acme/payments-api",
   "branch": "main",
   "session_id": "deploy-42"
 }'
 ```
 
-Só `status` é obrigatório. `repository`/`branch` podem ser omitidos se você mandar `cwd` (o repo é resolvido pelo `.git`).
-`timestamp` aceita ISO-8601 (com `Z` ou offset) ou epoch em ms. Status aceitos (case-insensitive):
-`THINKING, PLANNING, EXPLORING, CODING, RUNNING_COMMAND, TESTING, GITHUB, COMMITTING, OPENING_ISSUE, OPENING_PR,
-REVIEWING, BUILDING, DEPLOYING, WAITING_INPUT, DONE, SUCCESS, FAILED, ERROR, SESSION_STARTED, SESSION_ENDED, IDLE`.
+Only `status` is required. `repository`/`branch` can be omitted if you send `cwd` (the repository is resolved from its
+`.git`). `timestamp` accepts ISO-8601 (with `Z` or an offset) or epoch milliseconds. Accepted statuses
+(case-insensitive): `THINKING, PLANNING, EXPLORING, CODING, RUNNING_COMMAND, TESTING, GITHUB, COMMITTING, OPENING_ISSUE,
+OPENING_PR, REVIEWING, BUILDING, DEPLOYING, WAITING_INPUT, DONE, SUCCESS, FAILED, ERROR, SESSION_STARTED, SESSION_ENDED,
+IDLE`.
 
-Respostas: `202 {"accepted":true,"id":N}`, `400` para JSON inválido/sem `status`. `GET /health` → `200`.
+Responses: `202 {"accepted":true,"id":N}`, `400` for invalid JSON or a missing `status`. `GET /health` → `200`.
 
-## Arquitetura
+## Architecture
 
-Clean Architecture em 4 módulos Gradle — a regra de dependência é garantida pelo compilador:
+Clean Architecture in 4 Gradle modules; the dependency rule is enforced by the compiler:
 
 ```
 desktopApp ──► presentation ──► domain ◄── data
-     └───────────────(só no AppContainer)──────┘
+     └───────────────(only in AppContainer)────┘
 ```
 
-| Módulo         | Conteúdo                                                                                           | Depende de                     |
+| Module         | Contents                                                                                           | Depends on                     |
 |----------------|----------------------------------------------------------------------------------------------------|--------------------------------|
-| `domain`       | `AgentActivity`, `RepositoryRef`, `ActivityStatus`/`ActivityCategory`, porta `ActivityRepository`, use cases | coroutines                     |
-| `data`         | Ktor Embedded Server (CIO), DTOs, classificador dos hooks do Claude, resolvedor de repositório git, `WebhookActivityRepository` (`MutableSharedFlow` + `MutableStateFlow`) | domain, Ktor                   |
-| `presentation` | MVI: `DashboardState`, `DashboardIntent`, `DashboardReducer` (função pura), `DashboardViewModel` (`StateFlow`) | domain (Kotlin puro, sem Compose) |
-| `desktopApp`   | `main`, composition root (`di/AppContainer`), tema M3 e `@Composable`s                              | presentation, data (só DI)     |
+| `domain`       | `AgentActivity`, `RepositoryRef`, `ActivityStatus`/`ActivityCategory`, `ToolOutcome`, the `ActivityRepository` port, use cases | coroutines                     |
+| `data`         | Ktor embedded server (CIO), DTOs, Claude hook classifier, transcript reader, git repository resolver, `WebhookActivityRepository` (`MutableSharedFlow` + `MutableStateFlow`) | domain, Ktor                   |
+| `presentation` | MVI: `DashboardState`, `DashboardIntent`, `DashboardReducer` (pure function), request flow, `DashboardViewModel` (`StateFlow`) | domain (plain Kotlin, no Compose) |
+| `desktopApp`   | `main`, composition root (`di/AppContainer`), M3 theme and `@Composable`s                          | presentation, data (DI only)   |
 
-Fluxo unidirecional: **UI → `DashboardIntent` → ViewModel → `DashboardMutation` → `DashboardReducer` → `StateFlow<DashboardState>` → UI**.
-Eventos da camada de dados entram no mesmo reducer como mutações.
+Unidirectional flow: **UI → `DashboardIntent` → ViewModel → `DashboardMutation` → `DashboardReducer` → `StateFlow<DashboardState>` → UI**.
+Events from the data layer enter the same reducer as mutations.
 
-O servidor escuta em `127.0.0.1` por padrão (só processos locais). Use `--host=0.0.0.0` apenas se souber o que está fazendo.
+The server listens on `127.0.0.1` by default (local processes only). Use `--host=0.0.0.0` only if you know what you
+are doing.
 
-## Testes
+## Tests
 
 ```bash
 ./gradlew test
 ```
 
-Cobrem: rotas Ktor (`testApplication`), servidor real via HTTP (incluindo porta ocupada), classificação dos hooks
-e comandos Bash, resolução de repositório/branch/worktree a partir do `.git`, reducer e ViewModel.
+They cover the Ktor routes (`testApplication`), the real server over HTTP (including a busy port), classification of
+hooks, Bash commands and MCP tools, failure detection in tool results, transcript reading, repository/branch/worktree
+resolution from `.git`, the dynamic request flow, the reducer and the ViewModel.

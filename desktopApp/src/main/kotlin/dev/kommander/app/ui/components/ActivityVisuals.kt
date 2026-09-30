@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -24,6 +25,7 @@ val ActivityCategory.visual: CategoryVisual
         ActivityCategory.PLANNING -> CategoryVisual(Icons.Rounded.Psychology, Color(0xFF5C6BC0), "Planejando")
         ActivityCategory.RESEARCH -> CategoryVisual(Icons.Rounded.TravelExplore, Color(0xFF00897B), "Explorando")
         ActivityCategory.CODING -> CategoryVisual(Icons.Rounded.Code, Color(0xFF1E88E5), "Código")
+        ActivityCategory.COMMAND -> CategoryVisual(Icons.Rounded.Terminal, Color(0xFF546E7A), "Comando")
         ActivityCategory.TESTING -> CategoryVisual(Icons.Rounded.Science, Color(0xFFF9A825), "Testes")
         ActivityCategory.GITHUB -> CategoryVisual(Icons.Rounded.Hub, Color(0xFF8957E5), "GitHub")
         ActivityCategory.DEPLOY -> CategoryVisual(Icons.Rounded.CloudUpload, Color(0xFFF57C00), "Deploy")
