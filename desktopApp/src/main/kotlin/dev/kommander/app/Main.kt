@@ -16,9 +16,11 @@ import dev.kommander.app.ui.DashboardScreen
 import dev.kommander.app.ui.theme.KommanderTheme
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import java.awt.Toolkit
 import javax.imageio.ImageIO
 
 fun main(args: Array<String>) {
+    setLinuxWindowClass("kommander")
     val container = AppContainer(AppContainer.configFrom(args))
     val viewModel = container.dashboardViewModel
     val appIcon = loadAppIcon()
@@ -52,3 +54,19 @@ private fun loadAppIcon(): Painter? =
     object {}.javaClass.getResourceAsStream("/kommander.png")
         ?.use { ImageIO.read(it) }
         ?.toPainter()
+
+/**
+ * No Linux (X11/XWayland) o AWT usa como WM_CLASS o nome da classe que abriu a janela,
+ * que no Compose sai `java-lang-Thread`. Com um nome fixo, o menu de aplicativos e a barra
+ * de tarefas associam a janela ao `kommander.desktop` (`StartupWMClass=kommander`).
+ * Precisa de `--add-opens java.desktop/sun.awt.X11` (ver `jvmArgs` no build).
+ */
+private fun setLinuxWindowClass(name: String) {
+    runCatching {
+        val toolkit = Toolkit.getDefaultToolkit()
+        toolkit.javaClass.getDeclaredField("awtAppClassName").apply {
+            isAccessible = true
+            set(toolkit, name)
+        }
+    }
+}

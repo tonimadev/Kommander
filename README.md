@@ -52,31 +52,26 @@ In another terminal, watch the dashboard react to two simulated sessions:
 ./scripts/simulate.sh
 ```
 
-Native executable with a bundled JVM:
+### Install on Linux (native executable + application menu entry)
 
 ```bash
-./gradlew :desktopApp:createDistributable
-# -> desktopApp/build/compose/binaries/main/app/kommander/bin/kommander
+./scripts/install-linux.sh              # build and install, or update an existing install
+./scripts/install-linux.sh --uninstall  # remove it
 ```
 
-Linux menu entry with the app icon ([`desktopApp/icons/kommander.svg`](desktopApp/icons/kommander.svg)):
+The script builds the native executable with a bundled JVM (no Java needed to run it) and installs it for the
+current user, without root, into `~/.local` (override with `PREFIX=...`):
 
-```bash
-mkdir -p ~/.local/opt
-cp -r desktopApp/build/compose/binaries/main/app/kommander ~/.local/opt/
-install -Dm644 desktopApp/icons/kommander.svg ~/.local/share/icons/hicolor/scalable/apps/kommander.svg
-cat > ~/.local/share/applications/kommander.desktop <<EOF
-[Desktop Entry]
-Name=Kommander
-Comment=Claude Code dashboard
-Exec=env _JAVA_AWT_WM_NONREPARENTING=1 $HOME/.local/opt/kommander/bin/kommander
-Icon=kommander
-StartupWMClass=dev-kommander-app-MainKt
-Terminal=false
-Type=Application
-Categories=Development;
-EOF
-```
+| What                        | Where                                              |
+|-----------------------------|----------------------------------------------------|
+| App and bundled runtime     | `~/.local/opt/kommander/`                          |
+| Launcher                    | `~/.local/bin/kommander`                           |
+| Icon                        | `~/.local/share/icons/hicolor/{scalable,256x256}/apps/` |
+| Application menu entry      | `~/.local/share/applications/kommander.desktop`    |
+
+The window identifies itself as `kommander` (`StartupWMClass`), so the taskbar shows it under the app's icon.
+To only build the executable: `./gradlew :desktopApp:createDistributable`
+(output in `desktopApp/build/compose/binaries/main/app/kommander/`).
 
 Installable packages: `./gradlew :desktopApp:packageDeb` / `packageRpm`.
 

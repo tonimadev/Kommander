@@ -34,6 +34,8 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "dev.kommander.app.MainKt"
+        // Permite fixar o WM_CLASS da janela no Linux (ver setLinuxWindowClass em Main.kt).
+        jvmArgs += listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED")
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
