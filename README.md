@@ -31,7 +31,33 @@ Em outro terminal, veja o dashboard reagir a duas sessões simuladas:
 ./scripts/simulate.sh
 ```
 
-Pacote nativo para Linux: `./gradlew :desktopApp:packageDeb` (ou `packageRpm`, `packageAppImage`).
+Executável nativo com JVM embutida (funciona no Arch/CachyOS):
+
+```bash
+./gradlew :desktopApp:createDistributable
+# -> desktopApp/build/compose/binaries/main/app/kommander/bin/kommander
+```
+
+Atalho no menu com o ícone do app ([`desktopApp/icons/kommander.svg`](desktopApp/icons/kommander.svg)):
+
+```bash
+mkdir -p ~/.local/opt
+cp -r desktopApp/build/compose/binaries/main/app/kommander ~/.local/opt/
+install -Dm644 desktopApp/icons/kommander.svg ~/.local/share/icons/hicolor/scalable/apps/kommander.svg
+cat > ~/.local/share/applications/kommander.desktop <<EOF
+[Desktop Entry]
+Name=Kommander
+Comment=Dashboard do Claude Code
+Exec=env _JAVA_AWT_WM_NONREPARENTING=1 $HOME/.local/opt/kommander/bin/kommander
+Icon=kommander
+StartupWMClass=dev-kommander-app-MainKt
+Terminal=false
+Type=Application
+Categories=Development;
+EOF
+```
+
+Em distros Debian/Fedora: `./gradlew :desktopApp:packageDeb` / `packageRpm`.
 
 ## Conectando ao Claude Code
 

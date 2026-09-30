@@ -44,6 +44,8 @@ compose.desktop {
             modules("java.naming", "java.management", "jdk.unsupported")
             linux {
                 shortcut = true
+                // Fonte vetorial em icons/kommander.svg; o PNG é o que o jpackage usa.
+                iconFile.set(project.file("icons/kommander.png"))
             }
         }
     }
