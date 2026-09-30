@@ -17,6 +17,8 @@ data class SessionSnapshot(
     val latest: AgentActivity,
     val startedAt: Instant,
     val eventCount: Int,
+    /** Últimas atividades desta sessão, mais recente primeiro (alimenta o fluxo e a linha de pulso). */
+    val recent: List<AgentActivity> = listOf(latest),
 ) {
     val isWorking: Boolean get() = latest.status.isInProgress
     val needsAttention: Boolean get() = latest.status == ActivityStatus.WAITING_INPUT

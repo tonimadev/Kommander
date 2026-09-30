@@ -7,9 +7,15 @@ Claude Code ──hook (stdin JSON)──► curl ──POST──► Ktor (127.
 Seu script  ──────────────────────────────POST /events──┘
 ```
 
-- Um **card por sessão** (estilo Google Now) com repositório, branch, status atual, ícone/cor por categoria e `LinearProgressIndicator` indeterminado enquanto há trabalho em andamento.
-- Sessão que **precisa de você** (permissão, pergunta) ganha destaque rosa.
+- Um **card por sessão** (estilo Google Now) com repositório, branch e status atual, com ícone/cor por categoria.
+- **Ícone pulsante**: anéis de radar enquanto o Claude trabalha; pulso rápido e rosa quando **precisa de você**.
+- **Fluxo do pedido**: trilho `Plano → Leitura → Código → Testes → GitHub → Deploy`. As etapas feitas ficam acesas,
+  a atual pulsa e a conexão até ela tem um tracejado correndo.
+- **Linha de pulso** (estilo eletrocardiograma): cada ação vira um pico colorido que desliza pelos últimos 90s,
+  com uma "cabeça" pulsando na ponta enquanto há trabalho.
+- Borda que acende a cada evento novo e `LinearProgressIndicator` indeterminado no topo do card em andamento.
 - **Linha do tempo** de tudo o que aconteceu, com filtro por repositório.
+- As animações só rodam enquanto há algo acontecendo: com o Claude parado, o app fica ocioso.
 - Botão de **fixar janela no topo** para deixar o companion sempre visível.
 
 ## Rodando

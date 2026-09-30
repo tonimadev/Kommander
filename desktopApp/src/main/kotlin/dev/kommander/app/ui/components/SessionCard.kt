@@ -3,15 +3,15 @@ package dev.kommander.app.ui.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,25 +34,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.kommander.presentation.dashboard.SessionSnapshot
+import dev.kommander.presentation.dashboard.flowSteps
 import java.time.Instant
 
+private val CardShape = RoundedCornerShape(20.dp)
+private val CardCorner = 20.dp
+
 /**
- * Card estilo "Google Now" de uma sessão: repositório em destaque, status atual com
- * ícone/cor da categoria, o que está sendo feito e barra de progresso indeterminada
- * enquanto houver trabalho em andamento.
+ * Card estilo "Google Now" de uma sessão do Claude:
+ * - cabeçalho com repositório/branch e ícone pulsante da categoria;
+ * - o que está sendo feito agora (texto anima a cada troca);
+ * - trilho do pedido atual (Plano → … → Deploy) com a etapa ativa pulsando;
+ * - linha de pulso com um pico por ação nos últimos 90s;
+ * - borda que "acende" a cada evento novo e pulsa quando precisa de você.
  */
 @Composable
 fun SessionCard(
@@ -72,17 +84,60 @@ fun SessionCard(
         label = "container",
     )
 
+    // Brilho da borda: acende a cada evento e apaga devagar.
+    val flash = remember { Animatable(0f) }
+    LaunchedEffect(activity.id) {
+        flash.snapTo(1f)
+        flash.animateTo(0f, tween(1_200))
+    }
+    // Pulso contínuo da borda enquanto o Claude espera você.
+    val attention = remember { Animatable(0f) }
+    LaunchedEffect(session.needsAttention) {
+        if (!session.needsAttention) {
+            attention.animateTo(0f)
+            return@LaunchedEffect
+        }
+        while (true) {
+            attention.animateTo(0.9f, tween(650))
+            attention.animateTo(0.25f, tween(650))
+        }
+    }
+
     ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawWithContent {
+                drawContent()
+                val alpha = maxOf(flash.value * 0.85f, attention.value)
+                if (alpha > 0.01f) {
+                    val stroke = 2.dp.toPx()
+                    drawRoundRect(
+                        color = accent.copy(alpha = alpha),
+                        topLeft = Offset(stroke / 2, stroke / 2),
+                        size = Size(size.width - stroke, size.height - stroke),
+                        cornerRadius = CornerRadius(CardCorner.toPx()),
+                        style = Stroke(width = stroke),
+                    )
+                }
+            },
+        shape = CardShape,
         colors = CardDefaults.elevatedCardColors(containerColor = container),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (featured) 6.dp else 2.dp),
     ) {
+        // Barra indeterminada fina no topo do card enquanto há trabalho em andamento.
+        AnimatedVisibility(visible = session.isWorking) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().height(3.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.15f),
+            )
+        }
+
         Column(
             Modifier
-                // Faixa lateral com a cor da categoria: muda (animada) junto com o status.
-                .drawBehind { drawRect(accent, size = Size(6.dp.toPx(), size.height)) }
-                .padding(start = 22.dp, end = 12.dp, top = 16.dp, bottom = 14.dp),
+                // Faixa lateral com a cor da categoria.
+                .drawBehind { drawRect(accent, size = Size(5.dp.toPx(), size.height)) }
+                .padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 12.dp),
         ) {
             Header(session, accent, featured, onDismiss)
 
@@ -90,7 +145,10 @@ fun SessionCard(
 
             AnimatedContent(
                 targetState = activity,
-                transitionSpec = { (fadeIn(tween(250)) + scaleIn(initialScale = 0.96f)) togetherWith fadeOut(tween(150)) },
+                transitionSpec = {
+                    (slideInVertically { it / 3 } + fadeIn(tween(220))) togetherWith
+                        (slideOutVertically { -it / 3 } + fadeOut(tween(160)))
+                },
                 contentKey = { it.id },
                 label = "activity",
             ) { current ->
@@ -116,19 +174,18 @@ fun SessionCard(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
+            ActivityFlow(session.flowSteps())
 
-            AnimatedVisibility(visible = session.isWorking) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().padding(end = 8.dp).height(4.dp).clip(CircleShape),
-                    color = accent,
-                    trackColor = accent.copy(alpha = 0.18f),
-                )
-            }
-            if (!session.isWorking) Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
+            PulseStrip(
+                recent = session.recent,
+                accent = accent,
+                working = session.isWorking,
+                height = if (featured) 48.dp else 36.dp,
+            )
 
-            Spacer(Modifier.height(10.dp))
-
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = buildString {
                     append(session.agent)
@@ -152,15 +209,15 @@ fun SessionCard(
 private fun Header(session: SessionSnapshot, accent: Color, featured: Boolean, onDismiss: () -> Unit) {
     val visual = session.latest.status.category.visual
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(if (featured) 48.dp else 40.dp).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            AnimatedContent(visual.icon, label = "icon") { icon ->
-                Icon(icon, contentDescription = visual.label, tint = accent)
-            }
-        }
-        Spacer(Modifier.width(12.dp))
+        PulsingIcon(
+            icon = visual.icon,
+            contentDescription = visual.label,
+            accent = accent,
+            pulsing = session.isWorking || session.needsAttention,
+            urgent = session.needsAttention,
+            size = if (featured) 48.dp else 40.dp,
+        )
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = session.repository?.name ?: "Sem repositório",

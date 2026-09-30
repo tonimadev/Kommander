@@ -1,6 +1,10 @@
 package dev.kommander.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,6 +37,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -82,7 +88,7 @@ fun DashboardContent(
                     }
                 },
                 actions = {
-                    ListenerStatusChip(state.listener)
+                    ListenerStatusChip(state.listener, live = state.workingCount > 0)
                     IconButton(onClick = onToggleAlwaysOnTop) {
                         Icon(
                             if (alwaysOnTop) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
@@ -144,8 +150,16 @@ fun DashboardContent(
                     ) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             state.visibleTimeline.take(60).forEachIndexed { i, activity ->
-                                if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                TimelineItem(activity, now, showRepository = state.repositoryFilter == null)
+                                key(activity.id) {
+                                    // Itens novos "entram" no topo do fluxo deslizando.
+                                    val appear = remember { MutableTransitionState(false) }.apply { targetState = true }
+                                    AnimatedVisibility(visibleState = appear, enter = expandVertically() + fadeIn()) {
+                                        Column {
+                                            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                            TimelineItem(activity, now, showRepository = state.repositoryFilter == null)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

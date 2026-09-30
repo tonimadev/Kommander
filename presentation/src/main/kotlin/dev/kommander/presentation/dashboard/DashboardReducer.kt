@@ -4,6 +4,7 @@ package dev.kommander.presentation.dashboard
 internal object DashboardReducer {
 
     const val MAX_TIMELINE = 200
+    const val MAX_RECENT_PER_SESSION = 40
 
     fun reduce(state: DashboardState, mutation: DashboardMutation): DashboardState = when (mutation) {
         is DashboardMutation.ActivityReceived -> onActivity(state, mutation)
@@ -39,6 +40,7 @@ internal object DashboardReducer {
             // Alguns eventos podem vir sem repositório: mantemos o último conhecido.
             repository = activity.repository ?: previous.repository,
             eventCount = previous.eventCount + 1,
+            recent = (listOf(activity) + previous.recent).take(MAX_RECENT_PER_SESSION),
         ) ?: SessionSnapshot(
             key = key,
             agent = activity.agent,
