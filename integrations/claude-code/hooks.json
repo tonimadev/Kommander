@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ],
+    "Notification": [
+      { "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "curl -s -o /dev/null --max-time 1 -H 'Content-Type: application/json' --data-binary @- \"${KOMMANDER_URL:-http://127.0.0.1:8080}/hooks/claude-code\" || true" } ] }
+    ]
+  }
+}
